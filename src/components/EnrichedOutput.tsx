@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { t, type UILanguage } from "@/lib/i18n";
 
 interface EnrichedOutputProps {
   content: string;
   isProcessing: boolean;
   onCopy: () => void;
+  lang: UILanguage;
 }
 
 function renderMarkdown(text: string): string {
@@ -51,6 +53,7 @@ export default function EnrichedOutput({
   content,
   isProcessing,
   onCopy,
+  lang,
 }: EnrichedOutputProps) {
   const [copied, setCopied] = useState(false);
 
@@ -72,13 +75,15 @@ export default function EnrichedOutput({
     <div className="fade-in space-y-2">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider">
-          Enriched Output
+          {t("output.heading", lang)}
         </h3>
         <div className="flex items-center gap-2">
           {isProcessing && (
             <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
-              <span className="text-xs text-[var(--accent)]">Processing...</span>
+              <span className="text-xs text-[var(--accent)]">
+                {t("output.processing", lang)}
+              </span>
             </div>
           )}
           {content && (
@@ -91,7 +96,7 @@ export default function EnrichedOutput({
                   <svg className="w-3 h-3 text-[var(--success)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
-                  <span className="text-[var(--success)]">Copied!</span>
+                  <span className="text-[var(--success)]">{t("output.copied", lang)}</span>
                 </>
               ) : (
                 <>
@@ -99,7 +104,7 @@ export default function EnrichedOutput({
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                     <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
                   </svg>
-                  Copy
+                  {t("output.copy", lang)}
                 </>
               )}
             </button>
@@ -114,7 +119,7 @@ export default function EnrichedOutput({
               <div className="w-2 h-2 rounded-full bg-[var(--accent)] animate-bounce" style={{ animationDelay: "150ms" }} />
               <div className="w-2 h-2 rounded-full bg-[var(--accent)] animate-bounce" style={{ animationDelay: "300ms" }} />
             </div>
-            AI is processing your transcript...
+            {t("output.aiProcessing", lang)}
           </div>
         ) : (
           <div

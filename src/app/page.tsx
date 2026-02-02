@@ -9,20 +9,20 @@ import EnrichedOutput from "@/components/EnrichedOutput";
 import SettingsPanel from "@/components/SettingsPanel";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { useGlobalHotkey } from "@/hooks/useGlobalHotkey";
+import { type EnrichmentMode, enrichText } from "@/lib/enrichment";
 import {
-  type EnrichmentMode,
-  enrichText,
-} from "@/lib/enrichment";
-import {
-  transcribeWithWhisper,
+  transcribeAudio,
   transcribeWithWebSpeech,
 } from "@/lib/transcription";
 import {
   type AppSettings,
   loadSettings,
   saveSettings,
-  hasApiKey,
+  hasLLMApiKey,
+  hasAnyApiKey,
+  getTranscriptionApiKey,
 } from "@/lib/settings";
+import { t } from "@/lib/i18n";
 
 type AppState = "idle" | "recording" | "transcribing" | "enriching" | "done";
 
@@ -43,6 +43,7 @@ export default function Home() {
   const webSpeechRef = useRef<{ start: () => void; stop: () => void } | null>(null);
 
   const recorder = useAudioRecorder();
+  const lang = settings.uiLanguage;
 
   // Persist settings
   const handleSaveSettings = useCallback((newSettings: AppSettings) => {
@@ -50,7 +51,7 @@ export default function Home() {
     saveSettings(newSettings);
   }, []);
 
-  // Transcription after recording stops
+  // Transcription after recording stops (for API-based providers)
   const handleTranscribe = useCallback(
     async (audioBlob: Blob) => {
       setIsTranscribing(true);
@@ -58,39 +59,42 @@ export default function Home() {
       setError(null);
 
       try {
-        if (
-          settings.transcriptionMethod === "whisper" &&
-          hasApiKey(settings)
-        ) {
-          const result = await transcribeWithWhisper(
+        if (settings.transcriptionProvider !== "webspeech") {
+          const apiKey = getTranscriptionApiKey(settings);
+          const result = await transcribeAudio(
             audioBlob,
-            settings.openaiApiKey
+            settings.transcriptionProvider,
+            apiKey
           );
           setTranscript(result.text);
         } else {
-          // For non-Whisper, transcript was already captured via Web Speech API
-          // Just mark transcription as done
+          // For Web Speech, transcript was already captured in real-time
           setIsTranscribing(false);
           setAppState(transcript ? "done" : "idle");
           return;
         }
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Transcription failed."
+          err instanceof Error
+            ? err.message
+            : t("error.transcriptionFailed", lang)
         );
       } finally {
         setIsTranscribing(false);
       }
     },
-    [settings, transcript]
+    [settings, transcript, lang]
   );
 
-  // Auto-transcribe when audio blob is ready (for Whisper mode)
+  // Auto-transcribe when audio blob is ready (for API-based providers)
   useEffect(() => {
-    if (recorder.audioBlob && settings.transcriptionMethod === "whisper") {
+    if (
+      recorder.audioBlob &&
+      settings.transcriptionProvider !== "webspeech"
+    ) {
       handleTranscribe(recorder.audioBlob);
     }
-  }, [recorder.audioBlob, settings.transcriptionMethod, handleTranscribe]);
+  }, [recorder.audioBlob, settings.transcriptionProvider, handleTranscribe]);
 
   // Start recording
   const handleStartRecording = useCallback(async () => {
@@ -100,21 +104,22 @@ export default function Home() {
     recorder.reset();
 
     // If using Web Speech API, start it alongside audio recording
-    if (settings.transcriptionMethod === "webspeech") {
+    if (settings.transcriptionProvider === "webspeech") {
       webSpeechRef.current = transcribeWithWebSpeech(
         (result) => {
           setTranscript(result.text);
         },
         (errMsg) => {
           setError(errMsg);
-        }
+        },
+        settings.speechLanguage
       );
       webSpeechRef.current.start();
     }
 
     await recorder.startRecording();
     setAppState("recording");
-  }, [recorder, settings.transcriptionMethod]);
+  }, [recorder, settings.transcriptionProvider, settings.speechLanguage]);
 
   // Stop recording
   const handleStopRecording = useCallback(() => {
@@ -126,12 +131,12 @@ export default function Home() {
       webSpeechRef.current = null;
     }
 
-    if (settings.transcriptionMethod === "webspeech") {
+    if (settings.transcriptionProvider === "webspeech") {
       // Transcript was already being captured in real-time
       setAppState(transcript ? "done" : "idle");
     }
-    // For Whisper, the useEffect above handles transcription
-  }, [recorder, settings.transcriptionMethod, transcript]);
+    // For API-based providers, the useEffect above handles transcription
+  }, [recorder, settings.transcriptionProvider, transcript]);
 
   // Toggle recording via hotkey
   const toggleRecording = useCallback(() => {
@@ -148,14 +153,12 @@ export default function Home() {
   // Enrich transcript
   const handleEnrich = useCallback(async () => {
     if (!transcript.trim()) {
-      setError("No transcript to process. Please record something first.");
+      setError(t("error.noTranscript", lang));
       return;
     }
 
-    if (!hasApiKey(settings)) {
-      setError(
-        "OpenAI API key is required for enrichment. Please add it in Settings."
-      );
+    if (!hasLLMApiKey(settings)) {
+      setError(t("error.noApiKey", lang));
       return;
     }
 
@@ -168,18 +171,21 @@ export default function Home() {
       const result = await enrichText(
         transcript,
         selectedMode,
-        settings.openaiApiKey,
+        settings.llmProvider,
+        settings.apiKeys[settings.llmProvider],
         customPrompt
       );
       setEnrichedOutput(result);
       setAppState("done");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Enrichment failed.");
+      setError(
+        err instanceof Error ? err.message : t("error.enrichmentFailed", lang)
+      );
       setAppState("done");
     } finally {
       setIsEnriching(false);
     }
-  }, [transcript, settings, selectedMode, customPrompt]);
+  }, [transcript, settings, selectedMode, customPrompt, lang]);
 
   // Copy to clipboard
   const handleCopyOutput = useCallback(async () => {
@@ -193,7 +199,6 @@ export default function Home() {
         await navigator.clipboard.writeText(enrichedOutput);
       }
     } catch {
-      // Fallback
       await navigator.clipboard.writeText(enrichedOutput);
     }
   }, [enrichedOutput]);
@@ -217,10 +222,10 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-[var(--foreground)]">
-                Voice Intelligence
+                {t("app.title", lang)}
               </h1>
               <p className="text-sm text-[var(--muted)] mt-0.5">
-                Record, transcribe, and enrich with AI
+                {t("app.subtitle", lang)}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -233,13 +238,13 @@ export default function Home() {
                     <path d="M1 4v6h6" />
                     <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
                   </svg>
-                  New
+                  {t("reset.button", lang)}
                 </button>
               )}
               <button
                 onClick={() => setSettingsOpen(true)}
                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[var(--card)] border border-[var(--border)] transition-colors"
-                title="Settings"
+                title={t("settings.title", lang)}
               >
                 <svg className="w-4 h-4 text-[var(--muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="3" />
@@ -250,7 +255,7 @@ export default function Home() {
           </div>
 
           {/* API Key Warning */}
-          {!hasApiKey(settings) && (
+          {!hasAnyApiKey(settings) && (
             <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 fade-in">
               <svg className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
@@ -259,15 +264,15 @@ export default function Home() {
               </svg>
               <div>
                 <p className="text-sm text-amber-200">
-                  No OpenAI API key configured.
+                  {t("warning.noApiKey.title", lang)}
                 </p>
                 <p className="text-xs text-amber-200/70 mt-0.5">
-                  Transcription uses Web Speech API (browser-built-in). For Whisper transcription and AI enrichment,{" "}
+                  {t("warning.noApiKey.body", lang)}{" "}
                   <button
                     onClick={() => setSettingsOpen(true)}
                     className="underline hover:text-amber-100"
                   >
-                    add your API key in Settings
+                    {t("warning.noApiKey.link", lang)}
                   </button>
                   .
                 </p>
@@ -309,6 +314,8 @@ export default function Home() {
               onStop={handleStopRecording}
               onPause={recorder.togglePause}
               disabled={isTranscribing || isEnriching}
+              lang={lang}
+              hotkey={settings.hotkey}
             />
           </div>
 
@@ -318,6 +325,7 @@ export default function Home() {
             onModeChange={setSelectedMode}
             customPrompt={customPrompt}
             onCustomPromptChange={setCustomPrompt}
+            lang={lang}
           />
 
           {/* Transcript */}
@@ -325,6 +333,7 @@ export default function Home() {
             transcript={transcript}
             isTranscribing={isTranscribing}
             onEdit={setTranscript}
+            lang={lang}
           />
 
           {/* Enrich button */}
@@ -338,7 +347,9 @@ export default function Home() {
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                {isEnriching ? "Processing..." : "Enrich with AI"}
+                {isEnriching
+                  ? t("enrich.processing", lang)
+                  : t("enrich.button", lang)}
               </button>
             </div>
           )}
@@ -348,6 +359,7 @@ export default function Home() {
             content={enrichedOutput}
             isProcessing={isEnriching}
             onCopy={handleCopyOutput}
+            lang={lang}
           />
 
           {/* Bottom spacing */}

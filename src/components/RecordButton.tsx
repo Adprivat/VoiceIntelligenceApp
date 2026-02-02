@@ -1,5 +1,7 @@
 "use client";
 
+import { t, type UILanguage } from "@/lib/i18n";
+
 interface RecordButtonProps {
   isRecording: boolean;
   isPaused: boolean;
@@ -9,6 +11,8 @@ interface RecordButtonProps {
   onStop: () => void;
   onPause: () => void;
   disabled?: boolean;
+  lang: UILanguage;
+  hotkey: string;
 }
 
 function formatDuration(seconds: number): string {
@@ -26,7 +30,12 @@ export default function RecordButton({
   onStop,
   onPause,
   disabled,
+  lang,
+  hotkey,
 }: RecordButtonProps) {
+  // Format hotkey for display (e.g., "CmdOrCtrl+Shift+V" -> "Ctrl+Shift+V")
+  const displayHotkey = hotkey.replace("CmdOrCtrl", "Ctrl");
+
   return (
     <div className="flex flex-col items-center gap-4">
       {/* Main record button */}
@@ -112,7 +121,11 @@ export default function RecordButton({
 
       {!isRecording && (
         <p className="text-xs text-[var(--muted)]">
-          Click to record or press <kbd className="px-1.5 py-0.5 rounded bg-[var(--card)] border border-[var(--border)] text-[10px] font-mono">Ctrl+Shift+V</kbd>
+          {t("record.clickOrPress", lang)}{" "}
+          <kbd className="px-1.5 py-0.5 rounded bg-[var(--card)] border border-[var(--border)] text-[10px] font-mono">
+            {displayHotkey}
+          </kbd>
+          {t("record.pressHotkey", lang) ? ` ${t("record.pressHotkey", lang)}` : ""}
         </p>
       )}
     </div>

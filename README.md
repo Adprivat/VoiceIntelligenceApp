@@ -1,71 +1,92 @@
 # Voice Intelligence App
 
-A desktop application that records voice input, transcribes it, and enriches the output through AI processing. Built with Next.js and Tauri for a native desktop experience.
+Eine Desktop-Anwendung, die Spracheingaben aufnimmt, transkribiert und durch KI-gestützte Verarbeitung anreichert. Gebaut mit Next.js und Tauri für eine native Desktop-Erfahrung.
 
 ## Problem
 
-Capturing spoken thoughts and transforming them into usable, structured content is a common need - whether for meeting notes, emails, task extraction, or organized notes. Manually transcribing and formatting speech is tedious. This app automates the entire pipeline: **Record -> Transcribe -> Enrich**.
+Gesprochene Gedanken in strukturierte, nutzbare Inhalte umzuwandeln ist ein alltäglicher Bedarf - ob für Meeting-Notizen, E-Mails, Aufgabenextraktion oder organisierte Notizen. Manuelles Transkribieren und Formatieren von Sprache ist mühsam. Diese App automatisiert die gesamte Pipeline: **Aufnehmen -> Transkribieren -> Anreichern**.
 
-## Architecture
+## Architektur
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    Tauri Shell                       │
-│  ┌───────────────────────────────────────────────┐  │
-│  │              Next.js Frontend                 │  │
-│  │                                               │  │
-│  │  ┌──────────┐   ┌──────────┐   ┌──────────┐  │  │
-│  │  │  Record   │──>│Transcribe│──>│  Enrich  │  │  │
-│  │  │MediaRecordl│  │ Whisper/ │   │ GPT-4o   │  │  │
-│  │  │   API     │  │WebSpeech │   │  mini    │  │  │
-│  │  └──────────┘   └──────────┘   └──────────┘  │  │
-│  │       │              │              │         │  │
-│  │       ▼              ▼              ▼         │  │
-│  │  ┌─────────────────────────────────────────┐  │  │
-│  │  │           React UI Components           │  │  │
-│  │  │  RecordButton │ ModeSelector │ Output    │  │  │
-│  │  └─────────────────────────────────────────┘  │  │
-│  └───────────────────────────────────────────────┘  │
-│                                                     │
-│  Tauri Plugins: global-shortcut, clipboard, notify  │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                      Tauri Shell                          │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │               Next.js Frontend                     │  │
+│  │                                                    │  │
+│  │  ┌──────────┐   ┌─────────────┐   ┌───────────┐  │  │
+│  │  │ Aufnahme │──>│ Transkript. │──>│Anreicherung│  │  │
+│  │  │MediaRec. │   │ Whisper/    │   │ OpenAI/    │  │  │
+│  │  │  API     │   │ Groq/Web    │   │ Anthropic/ │  │  │
+│  │  │          │   │ Speech API  │   │ Google/Groq│  │  │
+│  │  └──────────┘   └─────────────┘   └───────────┘  │  │
+│  │       │               │                │          │  │
+│  │       ▼               ▼                ▼          │  │
+│  │  ┌────────────────────────────────────────────┐   │  │
+│  │  │         React UI (Deutsch/English)         │   │  │
+│  │  │  RecordButton │ ModeSelector │ Output      │   │  │
+│  │  └────────────────────────────────────────────┘   │  │
+│  │                                                    │  │
+│  │  i18n: DE (Standard) / EN (umschaltbar)           │  │
+│  └────────────────────────────────────────────────────┘  │
+│                                                          │
+│  Tauri Plugins: global-shortcut, clipboard, notification │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### Key Components
+### Schlüsselkomponenten
 
-| Component | Purpose |
+| Komponente | Zweck |
 |-----------|---------|
-| `src/hooks/useAudioRecorder.ts` | MediaRecorder API wrapper with audio level visualization |
-| `src/hooks/useGlobalHotkey.ts` | Tauri global shortcut registration with browser fallback |
-| `src/lib/transcription.ts` | Dual transcription: OpenAI Whisper API + Web Speech API |
-| `src/lib/enrichment.ts` | LLM enrichment pipeline with 6 processing modes |
-| `src/lib/settings.ts` | Persistent settings management via localStorage |
-| `src/components/` | UI components (Titlebar, RecordButton, ModeSelector, etc.) |
-| `src-tauri/` | Tauri v2 desktop runtime configuration |
+| `src/lib/i18n.ts` | Internationalisierung (Deutsch/Englisch) mit ~80 Übersetzungsschlüsseln |
+| `src/lib/settings.ts` | Einstellungsverwaltung mit Multi-Provider-Konfiguration und Migrationslogik |
+| `src/lib/transcription.ts` | Transkription: Web Speech API, OpenAI Whisper, Groq Whisper |
+| `src/lib/enrichment.ts` | LLM-Anreicherung via OpenAI, Anthropic, Google, Groq mit 6 Modi |
+| `src/hooks/useAudioRecorder.ts` | MediaRecorder API mit Echtzeit-Audiopegel-Visualisierung |
+| `src/hooks/useGlobalHotkey.ts` | Tauri Global Shortcut mit Browser-Fallback |
+| `src/components/SettingsPanel.tsx` | Umfangreiche Einstellungen: Sprache, Anbieter, API-Schlüssel |
+| `src-tauri/` | Tauri v2 Desktop-Runtime-Konfiguration |
 
 ### Voice Pipeline
 
-1. **Recording**: Browser MediaRecorder API captures audio (WebM/Opus). Real-time audio level analysis drives the waveform visualization.
-2. **Transcription**: Two options:
-   - **Web Speech API** (default, free): Real-time browser-based speech recognition, no API key needed
-   - **OpenAI Whisper** (optional): Higher accuracy, supports more languages, requires API key
-3. **Enrichment**: Transcript is sent to GPT-4o-mini with a mode-specific system prompt. Six built-in modes:
-   - **Smart Notes**: Structures spoken thoughts into organized, formatted notes
-   - **Meeting Summary**: Extracts key decisions, action items, and open questions
-   - **Email Draft**: Converts spoken ideas into professional email format
-   - **Task Extraction**: Identifies actionable to-dos with priorities
-   - **Translate to English**: Translates and cleans up into English
-   - **Custom Prompt**: User-defined processing instructions
+1. **Aufnahme**: Browser MediaRecorder API erfasst Audio (WebM/Opus). Echtzeit-Audiopegel-Analyse treibt die Wellenform-Visualisierung.
+2. **Transkription**: Drei Optionen, wählbar in den Einstellungen:
+   - **Web Speech API** (Standard, kostenlos): Echtzeit-Spracherkennung im Browser, kein API-Schlüssel nötig
+   - **OpenAI Whisper**: Höhere Genauigkeit, unterstützt mehr Sprachen, benötigt OpenAI API-Schlüssel
+   - **Groq Whisper**: Sehr schnelle Transkription, benötigt Groq API-Schlüssel
+3. **Anreicherung**: Transkript wird an den gewählten LLM-Anbieter mit modus-spezifischem System-Prompt gesendet. Sechs eingebaute Modi:
+   - **Intelligente Notizen**: Strukturiert gesprochene Gedanken in organisierte Notizen
+   - **Meeting-Zusammenfassung**: Extrahiert Entscheidungen, Aufgaben und offene Fragen
+   - **E-Mail-Entwurf**: Wandelt gesprochene Ideen in professionelle E-Mail um
+   - **Aufgabenextraktion**: Identifiziert To-Dos mit Prioritäten
+   - **Ins Englische übersetzen**: Übersetzt und bereinigt in Englisch
+   - **Eigener Prompt**: Benutzerdefinierte Verarbeitungsanweisungen
 
-### Hotkey Activation
+### Unterstützte KI-Anbieter
 
-The app registers a global hotkey (`Ctrl+Shift+V` by default) via Tauri's `global-shortcut` plugin. Pressing the hotkey toggles recording on/off, allowing seamless integration into any workflow. The hotkey is configurable in Settings.
+| Funktion | Anbieter | Modell |
+|----------|----------|--------|
+| Transkription | Web Speech API | Browser-integriert (kostenlos) |
+| Transkription | OpenAI | Whisper-1 |
+| Transkription | Groq | Whisper Large v3 Turbo |
+| Anreicherung | OpenAI | GPT-4o-mini |
+| Anreicherung | Anthropic | Claude 3.5 Sonnet |
+| Anreicherung | Google | Gemini 2.0 Flash |
+| Anreicherung | Groq | Llama 3.3 70B |
 
-## Prerequisites
+### Internationalisierung (i18n)
+
+Die App ist **nativ auf Deutsch**. In den Einstellungen kann auf Englisch umgeschaltet werden. Alle UI-Elemente, Fehlermeldungen, Labels und Beschreibungen sind vollständig übersetzt. Die Sprachumschaltung erfolgt sofort ohne Neustart.
+
+### Hotkey-Aktivierung
+
+Die App registriert einen globalen Hotkey (`Ctrl+Shift+V` standardmäßig) über Tauris `global-shortcut` Plugin. Der Hotkey schaltet die Aufnahme ein/aus und ist in den Einstellungen konfigurierbar.
+
+## Voraussetzungen
 
 - **Node.js** >= 18
-- **Rust** >= 1.77 (for Tauri)
-- **System dependencies for Tauri**: see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
+- **Rust** >= 1.77 (für Tauri)
+- **Systemabhängigkeiten für Tauri**: siehe [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)
   - Linux: `sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev`
   - macOS: Xcode Command Line Tools
   - Windows: Microsoft Visual Studio C++ Build Tools, WebView2
@@ -73,60 +94,62 @@ The app registers a global hotkey (`Ctrl+Shift+V` by default) via Tauri's `globa
 ## Setup
 
 ```bash
-# Clone the repository
+# Repository klonen
 git clone <repo-url>
 cd VoiceIntelligenceApp
 
-# Install Node.js dependencies
+# Node.js-Abhängigkeiten installieren
 npm install
 
-# (Optional) Copy and configure environment
-cp .env.example .env
-# Edit .env and add your OpenAI API key
-
-# Run in development mode (browser only)
+# Im Entwicklungsmodus starten (nur Browser)
 npm run dev
 
-# Run as desktop app (Tauri)
+# Als Desktop-App starten (Tauri)
 npm run tauri:dev
 
-# Build desktop app for production
+# Desktop-App für Produktion bauen
 npm run tauri:build
 ```
 
-### Configuration
+### Konfiguration
 
-On first launch, click the **Settings** icon (gear) to configure:
+Beim ersten Start das **Einstellungen**-Icon (Zahnrad) klicken:
 
-1. **OpenAI API Key**: Required for Whisper transcription and AI enrichment
-2. **Transcription Method**: Choose between Web Speech API (free) or Whisper (better quality)
-3. **Language**: Set the speech recognition language
-4. **Global Hotkey**: Customize the activation shortcut
+1. **App-Sprache**: Deutsch (Standard) oder Englisch
+2. **Transkriptions-Anbieter**: Web Speech API (kostenlos), OpenAI Whisper, oder Groq Whisper
+3. **KI-Anbieter (LLM)**: OpenAI, Anthropic, Google, oder Groq
+4. **API-Schlüssel**: Nur die Schlüssel für die gewählten Anbieter werden angezeigt/benötigt
+5. **Spracherkennungssprache**: Deutsch, Englisch, Französisch, etc.
+6. **Globaler Hotkey**: Tastenkombination anpassen
 
-Settings are persisted in localStorage.
+Einstellungen werden im localStorage des Browsers gespeichert.
 
-## Design Decisions
+## Design-Entscheidungen
 
-### Why Tauri over Electron?
-Tauri produces significantly smaller binaries (~5-10MB vs ~150MB+), uses less memory at runtime, and leverages the OS webview instead of bundling Chromium. The Rust backend also provides better security through its capability-based permission system.
+### Warum Tauri statt Electron?
+Tauri erzeugt deutlich kleinere Binärdateien (~5-10MB vs ~150MB+), verbraucht weniger Speicher und nutzt die OS-WebView statt Chromium zu bündeln. Das Rust-Backend bietet zudem bessere Sicherheit durch ein Capability-basiertes Berechtigungssystem.
 
-### Why client-side API calls instead of a backend proxy?
-For a desktop app, API calls go directly from the client to OpenAI. This simplifies the architecture - no server to deploy/maintain, and the API key stays on the user's machine in localStorage. A production version could add a backend proxy for key management.
+### Warum Multi-Provider statt nur OpenAI?
+Verschiedene Nutzer haben verschiedene Präferenzen und bestehende API-Zugänge. Anthropic Claude bietet oft bessere Textqualität, Groq extrem schnelle Antwortzeiten, Google eine kostenfreie Einstiegsoption. Die intelligente API-Schlüssel-Verwaltung zeigt nur relevante Felder an.
 
-### Why Web Speech API as default?
-It works out of the box without any API key, providing zero-friction onboarding. Users can upgrade to Whisper for better accuracy once they add an API key.
+### Warum client-seitige API-Aufrufe statt Backend-Proxy?
+Für eine Desktop-App gehen API-Aufrufe direkt vom Client zum Anbieter. Das vereinfacht die Architektur - kein Server zu deployen/warten, und der API-Schlüssel bleibt auf dem Gerät des Nutzers.
 
-### Why GPT-4o-mini for enrichment?
-It provides a good balance of quality, speed, and cost. The enrichment tasks (formatting, summarizing, extracting) don't require the full capability of larger models.
+### Warum Deutsch als Standardsprache?
+Die App richtet sich primär an deutschsprachige Nutzer. Alle UI-Elemente, Fehlermeldungen und Beschreibungen sind nativ auf Deutsch. Über die Einstellungen kann jederzeit auf Englisch umgeschaltet werden.
 
-### Why static export (`output: "export"`)?
-Tauri serves local files rather than running a Node.js server. Static export ensures the Next.js output is a set of HTML/JS/CSS files that Tauri's webview can load directly. API calls go directly to OpenAI from the frontend.
+### Warum Web Speech API als Standard?
+Sie funktioniert sofort ohne API-Schlüssel und ermöglicht reibungsloses Onboarding. Nutzer können auf Whisper oder Groq upgraden, sobald ein API-Schlüssel vorhanden ist.
+
+### Warum statischer Export (`output: "export"`)?
+Tauri liefert lokale Dateien statt einen Node.js-Server zu betreiben. Statischer Export stellt sicher, dass der Next.js-Output eine Menge HTML/JS/CSS-Dateien ist, die Tauris WebView direkt laden kann.
 
 ## Tech Stack
 
 - **Framework**: Next.js 16 (App Router, TypeScript)
-- **Desktop Runtime**: Tauri v2
+- **Desktop-Runtime**: Tauri v2
 - **Styling**: Tailwind CSS v4
-- **Voice-to-Text**: OpenAI Whisper API + Web Speech API
-- **LLM**: OpenAI GPT-4o-mini
-- **Language**: TypeScript (frontend), Rust (Tauri backend)
+- **Transkription**: Web Speech API + OpenAI Whisper + Groq Whisper
+- **LLM**: OpenAI GPT-4o-mini, Anthropic Claude 3.5 Sonnet, Google Gemini 2.0 Flash, Groq Llama 3.3 70B
+- **i18n**: Eigenes Übersetzungssystem (Deutsch/Englisch)
+- **Sprachen**: TypeScript (Frontend), Rust (Tauri-Backend)
