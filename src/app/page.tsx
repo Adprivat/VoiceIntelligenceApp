@@ -40,10 +40,15 @@ export default function Home() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
   const webSpeechRef = useRef<{ start: () => void; stop: () => void } | null>(null);
 
   const recorder = useAudioRecorder();
   const lang = settings.uiLanguage;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Persist settings
   const handleSaveSettings = useCallback((newSettings: AppSettings) => {
@@ -117,9 +122,9 @@ export default function Home() {
       webSpeechRef.current.start();
     }
 
-    await recorder.startRecording();
+    await recorder.startRecording(settings.selectedMicrophone || undefined);
     setAppState("recording");
-  }, [recorder, settings.transcriptionProvider, settings.speechLanguage]);
+  }, [recorder, settings.transcriptionProvider, settings.speechLanguage, settings.selectedMicrophone]);
 
   // Stop recording
   const handleStopRecording = useCallback(() => {
@@ -255,7 +260,7 @@ export default function Home() {
           </div>
 
           {/* API Key Warning */}
-          {!hasAnyApiKey(settings) && (
+          {mounted && !hasAnyApiKey(settings) && (
             <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 fade-in">
               <svg className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />

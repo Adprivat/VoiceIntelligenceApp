@@ -13,7 +13,7 @@ export interface AudioRecorderState {
 }
 
 export interface AudioRecorderActions {
-  startRecording: () => Promise<void>;
+  startRecording: (deviceId?: string) => Promise<void>;
   stopRecording: () => void;
   togglePause: () => void;
   reset: () => void;
@@ -45,17 +45,22 @@ export function useAudioRecorder(): AudioRecorderState & AudioRecorderActions {
     animationFrameRef.current = requestAnimationFrame(updateAudioLevel);
   }, []);
 
-  const startRecording = useCallback(async () => {
+  const startRecording = useCallback(async (deviceId?: string) => {
     try {
       setError(null);
       chunksRef.current = [];
 
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        sampleRate: 44100,
+      };
+      if (deviceId) {
+        audioConstraints.deviceId = { exact: deviceId };
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100,
-        },
+        audio: audioConstraints,
       });
       streamRef.current = stream;
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { t, type UILanguage } from "@/lib/i18n";
+import { exportFile } from "@/lib/export";
 
 interface EnrichedOutputProps {
   content: string;
@@ -71,6 +72,13 @@ export default function EnrichedOutput({
     setCopied(true);
   };
 
+  const handleExport = async () => {
+    await exportFile(content, "ki-ergebnis.md", [
+      { name: "Markdown", extensions: ["md"] },
+      { name: "Text", extensions: ["txt"] },
+    ]);
+  };
+
   return (
     <div className="fade-in space-y-2">
       <div className="flex items-center justify-between">
@@ -87,27 +95,40 @@ export default function EnrichedOutput({
             </div>
           )}
           {content && (
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--card-hover)] text-xs transition-colors"
-            >
-              {copied ? (
-                <>
-                  <svg className="w-3 h-3 text-[var(--success)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  <span className="text-[var(--success)]">{t("output.copied", lang)}</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                  </svg>
-                  {t("output.copy", lang)}
-                </>
-              )}
-            </button>
+            <>
+              <button
+                onClick={handleExport}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--card-hover)] text-xs transition-colors"
+              >
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                {t("output.export", lang)}
+              </button>
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[var(--card)] border border-[var(--border)] hover:bg-[var(--card-hover)] text-xs transition-colors"
+              >
+                {copied ? (
+                  <>
+                    <svg className="w-3 h-3 text-[var(--success)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span className="text-[var(--success)]">{t("output.copied", lang)}</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                    </svg>
+                    {t("output.copy", lang)}
+                  </>
+                )}
+              </button>
+            </>
           )}
         </div>
       </div>

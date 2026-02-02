@@ -99,8 +99,19 @@ const translations = {
 
     "settings.speechLanguage.label": "Spracherkennungssprache",
 
+    "settings.microphone.label": "Mikrofon",
+    "settings.microphone.default": "Standard (Systemstandard)",
+    "settings.microphone.refresh": "Aktualisieren",
+
     "settings.hotkey.label": "Globaler Hotkey",
     "settings.hotkey.description": "Tauri-Tastenkombinationsformat (z.B. CmdOrCtrl+Shift+V). Wird beim Neustart angewendet.",
+
+    // Export
+    "transcript.export": "Exportieren",
+    "output.export": "Exportieren",
+
+    // Quit
+    "app.quit": "Programm beenden",
   },
 
   en: {
@@ -199,8 +210,19 @@ const translations = {
 
     "settings.speechLanguage.label": "Speech Recognition Language",
 
+    "settings.microphone.label": "Microphone",
+    "settings.microphone.default": "Default (System default)",
+    "settings.microphone.refresh": "Refresh",
+
     "settings.hotkey.label": "Global Hotkey",
     "settings.hotkey.description": "Tauri shortcut format (e.g., CmdOrCtrl+Shift+V). Applied on restart.",
+
+    // Export
+    "transcript.export": "Export",
+    "output.export": "Export",
+
+    // Quit
+    "app.quit": "Quit Application",
   },
 } as const;
 

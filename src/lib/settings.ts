@@ -16,6 +16,7 @@ export interface AppSettings {
   defaultMode: string;
   hotkey: string;
   speechLanguage: string;
+  selectedMicrophone: string;
 }
 
 const STORAGE_KEY = "voice-intelligence-settings";
@@ -33,6 +34,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultMode: "smart-notes",
   hotkey: "CmdOrCtrl+Shift+V",
   speechLanguage: "de-DE",
+  selectedMicrophone: "",
 };
 
 export function loadSettings(): AppSettings {

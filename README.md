@@ -30,7 +30,8 @@ Gesprochene Gedanken in strukturierte, nutzbare Inhalte umzuwandeln ist ein allt
 │  │  i18n: DE (Standard) / EN (umschaltbar)           │  │
 │  └────────────────────────────────────────────────────┘  │
 │                                                          │
-│  Tauri Plugins: global-shortcut, clipboard, notification │
+│  Tauri Plugins: global-shortcut, clipboard, notification,│
+│                 dialog, fs                               │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -39,17 +40,18 @@ Gesprochene Gedanken in strukturierte, nutzbare Inhalte umzuwandeln ist ein allt
 | Komponente | Zweck |
 |-----------|---------|
 | `src/lib/i18n.ts` | Internationalisierung (Deutsch/Englisch) mit ~80 Übersetzungsschlüsseln |
-| `src/lib/settings.ts` | Einstellungsverwaltung mit Multi-Provider-Konfiguration und Migrationslogik |
+| `src/lib/settings.ts` | Einstellungsverwaltung mit Multi-Provider-Konfiguration, Mikrofon-Auswahl und Migrationslogik |
 | `src/lib/transcription.ts` | Transkription: Web Speech API, OpenAI Whisper, Groq Whisper |
 | `src/lib/enrichment.ts` | LLM-Anreicherung via OpenAI, Anthropic, Google, Groq mit 6 Modi |
-| `src/hooks/useAudioRecorder.ts` | MediaRecorder API mit Echtzeit-Audiopegel-Visualisierung |
+| `src/lib/export.ts` | Datei-Export via Tauri Save-Dialog (Desktop) oder Blob-Download (Browser) |
+| `src/hooks/useAudioRecorder.ts` | MediaRecorder API mit Echtzeit-Audiopegel-Visualisierung und Mikrofon-Auswahl |
 | `src/hooks/useGlobalHotkey.ts` | Tauri Global Shortcut mit Browser-Fallback |
-| `src/components/SettingsPanel.tsx` | Umfangreiche Einstellungen: Sprache, Anbieter, API-Schlüssel |
+| `src/components/SettingsPanel.tsx` | Umfangreiche Einstellungen: Sprache, Mikrofon, Anbieter, API-Schlüssel, Programm beenden |
 | `src-tauri/` | Tauri v2 Desktop-Runtime-Konfiguration |
 
 ### Voice Pipeline
 
-1. **Aufnahme**: Browser MediaRecorder API erfasst Audio (WebM/Opus). Echtzeit-Audiopegel-Analyse treibt die Wellenform-Visualisierung.
+1. **Aufnahme**: Browser MediaRecorder API erfasst Audio (WebM/Opus) vom gewählten Mikrofon. Echtzeit-Audiopegel-Analyse treibt die Wellenform-Visualisierung.
 2. **Transkription**: Drei Optionen, wählbar in den Einstellungen:
    - **Web Speech API** (Standard, kostenlos): Echtzeit-Spracherkennung im Browser, kein API-Schlüssel nötig
    - **OpenAI Whisper**: Höhere Genauigkeit, unterstützt mehr Sprachen, benötigt OpenAI API-Schlüssel
@@ -61,6 +63,13 @@ Gesprochene Gedanken in strukturierte, nutzbare Inhalte umzuwandeln ist ein allt
    - **Aufgabenextraktion**: Identifiziert To-Dos mit Prioritäten
    - **Ins Englische übersetzen**: Übersetzt und bereinigt in Englisch
    - **Eigener Prompt**: Benutzerdefinierte Verarbeitungsanweisungen
+4. **Export**: Transkript und KI-Ergebnis können über den Export-Button als Datei gespeichert werden. In der Desktop-App öffnet sich ein nativer Speichern-Dialog (Tauri Dialog + FS Plugin), im Browser wird ein Download ausgelöst.
+   - **Transkript**: Export als `.txt`-Datei
+   - **KI-Ergebnis**: Export als `.md`-Datei (Markdown)
+
+### Mikrofon-Auswahl
+
+In den Einstellungen kann das gewünschte Eingabemikrofon ausgewählt werden. Die App listet alle verfügbaren Audiogeräte auf und speichert die Auswahl persistent. Ein Aktualisieren-Button ermöglicht das Neuladen der Geräteliste (z.B. nach Anschluss eines USB-Mikrofons).
 
 ### Unterstützte KI-Anbieter
 
@@ -116,11 +125,13 @@ npm run tauri:build
 Beim ersten Start das **Einstellungen**-Icon (Zahnrad) klicken:
 
 1. **App-Sprache**: Deutsch (Standard) oder Englisch
-2. **Transkriptions-Anbieter**: Web Speech API (kostenlos), OpenAI Whisper, oder Groq Whisper
-3. **KI-Anbieter (LLM)**: OpenAI, Anthropic, Google, oder Groq
-4. **API-Schlüssel**: Nur die Schlüssel für die gewählten Anbieter werden angezeigt/benötigt
-5. **Spracherkennungssprache**: Deutsch, Englisch, Französisch, etc.
-6. **Globaler Hotkey**: Tastenkombination anpassen
+2. **Mikrofon**: Eingabegerät auswählen (Standard = Systemmikrofon)
+3. **Transkriptions-Anbieter**: Web Speech API (kostenlos), OpenAI Whisper, oder Groq Whisper
+4. **KI-Anbieter (LLM)**: OpenAI, Anthropic, Google, oder Groq
+5. **API-Schlüssel**: Nur die Schlüssel für die gewählten Anbieter werden angezeigt/benötigt
+6. **Spracherkennungssprache**: Deutsch, Englisch, Französisch, etc.
+7. **Globaler Hotkey**: Tastenkombination anpassen
+8. **Programm beenden**: App komplett schließen (nur Desktop)
 
 Einstellungen werden im localStorage des Browsers gespeichert.
 
@@ -148,8 +159,10 @@ Tauri liefert lokale Dateien statt einen Node.js-Server zu betreiben. Statischer
 
 - **Framework**: Next.js 16 (App Router, TypeScript)
 - **Desktop-Runtime**: Tauri v2
+- **Tauri-Plugins**: global-shortcut, clipboard-manager, notification, dialog, fs, shell, log
 - **Styling**: Tailwind CSS v4
 - **Transkription**: Web Speech API + OpenAI Whisper + Groq Whisper
 - **LLM**: OpenAI GPT-4o-mini, Anthropic Claude 3.5 Sonnet, Google Gemini 2.0 Flash, Groq Llama 3.3 70B
+- **Export**: Nativer Speichern-Dialog (Desktop) / Blob-Download (Browser)
 - **i18n**: Eigenes Übersetzungssystem (Deutsch/Englisch)
 - **Sprachen**: TypeScript (Frontend), Rust (Tauri-Backend)
